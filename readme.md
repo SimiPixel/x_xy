@@ -2,9 +2,9 @@
 <img src="figures/icon.svg" height="200" />
 </p>
 
-# **Ti**ny **Ki**nematic **Tr**ee Simulator (**TiKiTr**)
+# **Ti**ny **Ki**nematic **Tree** Simulator (**TiKiTree**)
 
-The **Ti**ny **Ki**nematic **Tr**ee Simulator (TiKiTr) allows to perform 
+The **Ti**ny **Ki**nematic **Tree** Simulator (TiKiTree) allows to perform 
 - forward dynamics
 - inverse dynamics
 - forward kinematics
