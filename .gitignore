@@ -4,5 +4,4 @@ __pycache__
 .pytype*
 .pytest*
 *.pkl
-*.eqx
 *.ipynb

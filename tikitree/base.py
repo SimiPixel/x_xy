@@ -6,7 +6,7 @@ import tree_utils as tu
 from flax import struct
 from jax.tree_util import tree_map
 
-from tikitr import maths, spatial
+from tikitree import maths, spatial
 
 Scalar = jnp.ndarray
 Vector = jnp.ndarray

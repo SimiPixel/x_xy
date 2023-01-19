@@ -1,8 +1,8 @@
 import jax
 import jax.numpy as jnp
 
-from tikitr.base import Force, Motion, Transform
-from tikitr.model import Link, Model
+from tikitree.base import Force, Motion, Transform
+from tikitree.model import Link, Model
 
 from .jcalc import jcalc
 

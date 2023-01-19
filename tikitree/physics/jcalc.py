@@ -1,8 +1,8 @@
 import jax
 import jax.numpy as jnp
 
-from tikitr import maths
-from tikitr.base import Motion, Transform
+from tikitree import maths
+from tikitree.base import Motion, Transform
 
 
 def jcalc(joint_type: jnp.ndarray, q):

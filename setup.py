@@ -31,7 +31,7 @@ setuptools.setup(
     name="Tiny Kinematic Tree Simulator",
     packages=setuptools.find_packages(),
     version="0.0.1",
-    package_data={"tikitr": find_data_files("tikitr", patterns=["*.xml"])},
+    package_data={"tikitree": find_data_files("tikitree", patterns=["*.xml"])},
     include_package_data=True,
     install_requires=["jaxlib", "jax", "flax"],
 )

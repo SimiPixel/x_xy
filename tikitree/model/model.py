@@ -4,8 +4,8 @@ from typing import Iterable
 import jax.numpy as jnp
 from flax import struct
 
-from tikitr.base import Inertia, Transform, _Base
-from tikitr.model.graph import ROOT, Graph, is_root
+from tikitree.base import Inertia, Transform, _Base
+from tikitree.model.graph import ROOT, Graph, is_root
 
 JointType = SimpleNamespace(
     Revolute=jnp.array(0), Prismatic=jnp.array(1), Frozen=jnp.array(2)
