@@ -1,9 +1,8 @@
-# many quaternion operations, also safe operations
-# see brax for inspiration
 from functools import partial
 
 import jax
 import jax.numpy as jnp
+import jax.random as jrand
 
 
 @partial(jnp.vectorize, signature="(k)->(1)")
@@ -34,6 +33,7 @@ def safe_normalize(x):
     )
 
 
+@partial(jnp.vectorize, signature="(4),(4)->(4)")
 def quat_mul(u: jnp.ndarray, v: jnp.ndarray) -> jnp.ndarray:
     """Multiplies two quaternions.
     Args:
@@ -50,7 +50,7 @@ def quat_mul(u: jnp.ndarray, v: jnp.ndarray) -> jnp.ndarray:
             u[0] * v[3] + u[1] * v[2] - u[2] * v[1] + u[3] * v[0],
         ]
     )
-    return q
+    return safe_normalize(q)
 
 
 def quat_inv(q: jnp.ndarray) -> jnp.ndarray:
@@ -63,6 +63,7 @@ def quat_inv(q: jnp.ndarray) -> jnp.ndarray:
     return q * jnp.array([1, -1, -1, -1])
 
 
+@partial(jnp.vectorize, signature="(3),(4)->(3)")
 def rotate(vec: jnp.ndarray, quat: jnp.ndarray):
     """Rotates a vector vec by a unit quaternion quat.
     Args:
@@ -71,7 +72,14 @@ def rotate(vec: jnp.ndarray, quat: jnp.ndarray):
     Returns:
       ndarray(3) containing vec rotated by quat.
     """
-    return quat_mul(quat, quat_mul(jnp.array([0, *vec]), quat_inv(quat)))[1:4]
+    return quat_mul(quat, quat_mul(jnp.array([0, *vec]), quat_inv(quat)))[
+        1:4
+    ] * safe_norm(vec)
+
+
+def rotate_matrix(mat: jax.Array, quat: jax.Array):
+    E = quat_to_3x3(quat)
+    return E @ mat @ E.T
 
 
 def quat_rot_axis(axis: jnp.ndarray, angle: jnp.ndarray) -> jnp.ndarray:
@@ -115,3 +123,43 @@ def quat_to_3x3(q: jnp.ndarray) -> jnp.ndarray:
             jnp.array([xz - wy, yz + wx, 1 - (xx + yy)]),
         ]
     )
+
+
+def quat_random(key: jrand.PRNGKey, batch_shape: tuple[int] = ()) -> jax.Array:
+    """Provides a random quaternion, sampled uniformly"""
+    shape = batch_shape + (4,)
+    return safe_normalize(jrand.normal(key, shape))
+
+
+def inv_approximate(
+    a: jnp.ndarray, a_inv: jnp.ndarray, tol: float = 1e-12, maxiter: int = 10
+) -> jnp.ndarray:
+    """Use Newton-Schulz iteration to solve ``A^-1``.
+    Args:
+        a: 2D array to invert
+        a_inv: approximate solution to A^-1
+        tol: tolerance for convergance, ``norm(residual) <= tol``.
+        maxiter: maximum number of iterations.  Iteration will stop after maxiter
+        steps even if the specified tolerance has not been achieved.
+    Returns:
+        A^-1 inverted matrix
+    """
+
+    def cond_fn(value):
+        # TODO: test whether it's better for convergence to check
+        # ||I - Xn @ A || > tol - this is certainly faster and results seem OK
+        _, k, err = value
+        return (err > tol) & (k < maxiter)
+
+    def body_fn(value):
+        a_inv, k, _ = value
+        a_inv_new = 2 * a_inv - a_inv @ a.T @ a_inv
+        return a_inv_new, k + 1, jnp.linalg.norm(a_inv_new - a_inv)
+
+    # ensure ||I - X0 @ A|| < 1, in order to guarantee convergence
+    r0 = jnp.eye(a.shape[0]) - a @ a_inv
+    a_inv = jnp.where(jnp.linalg.norm(r0) > 1, 0.5 * a.T / jnp.trace(a @ a.T), a_inv)
+
+    a_inv, *_ = jax.lax.while_loop(cond_fn, body_fn, (a_inv, 0, 1.0))
+
+    return a_inv

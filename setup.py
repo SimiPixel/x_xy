@@ -28,10 +28,16 @@ def find_data_files(package_dir, patterns, excludes=()):
 
 
 setuptools.setup(
-    name="Tiny Kinematic Tree Simulator",
+    name="x_xy",
     packages=setuptools.find_packages(),
-    version="0.0.1",
-    package_data={"tikitree": find_data_files("tikitree", patterns=["*.xml"])},
+    version="0.1.0",
+    package_data={"x_xy": find_data_files("x_xy", patterns=["*.xml"])},
     include_package_data=True,
-    install_requires=["jaxlib", "jax", "flax"],
+    install_requires=[
+        "jaxlib",
+        "jax",
+        "flax",
+        "tqdm",
+        "vispy",
+    ],  # also tree_utils package
 )

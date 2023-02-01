@@ -2,9 +2,9 @@
 <img src="figures/icon.svg" height="200" />
 </p>
 
-# **Ti**ny **Ki**nematic **Tree** Simulator (**TiKiTree**)
+# `x_xy` -- A *tiny* Kinematic Tree Simulator
 
-The **Ti**ny **Ki**nematic **Tree** Simulator (TiKiTree) allows to perform 
+`x_xy` is a small package for performing
 - forward dynamics
 - inverse dynamics
 - forward kinematics

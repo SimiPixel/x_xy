@@ -77,6 +77,10 @@ def xlt(r):
     return quadrants(eye(3), ba=-cross(r), bb=eye(3))
 
 
+def X_transform(E, r):
+    return _rotxyz(E) @ xlt(r)
+
+
 def mcI(m, c, Ic):
     assert c.shape == (3,)
     assert Ic.shape == (3, 3)
