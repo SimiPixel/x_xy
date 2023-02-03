@@ -1,8 +1,11 @@
+import functools as ft
 from dataclasses import dataclass
+from typing import Tuple
 
 import jax
 import jax.numpy as jnp
 import jax.random as random
+from flax import struct
 
 from x_xy import maths
 from x_xy.base import System
@@ -10,7 +13,7 @@ from x_xy.kinematics import forward_kinematics, update_link_transform
 from x_xy.random import random_angle_over_time, random_position_over_time
 
 
-@dataclass
+@struct.dataclass
 class RCMG_Parameters:
     t_min: float = 0.15  # min time between two generated angles
     t_max: float = 0.75  # max time ..
@@ -22,6 +25,10 @@ class RCMG_Parameters:
     dpos_max: float = 0.1
     pos_min: float = -2.5
     pos_max: float = +2.5
+
+
+@dataclass
+class RCMG_Flags:
     randomized_interpolation: bool = False
     range_of_motion: bool = True
     range_of_motion_method: str = "uniform"
@@ -58,14 +65,14 @@ class RCMG_Callback:
 
 class RCMB_Callback_6D_IMU_at_nodes(RCMG_Callback):
     def __init__(self, nodes: list[int], gravity: jax.Array, Ts: float):
-        @jax.vmap
         def imu_measurement_function(rot, pos):
             extras = {}
             for i in nodes:
                 extras[f"node_{i}"] = {}
-                extras[f"node_{i}"]["gyr"] = quat2gyr(rot[i], Ts)
-                extras[f"node_{i}"]["acc"] = pos2acc(rot[i], pos[i], gravity, Ts)
-                extras[f"node_{i}"]["quat_to_earth"] = rot[i]
+                rot_i, pos_i = rot[:, i], pos[:, i]
+                extras[f"node_{i}"]["gyr"] = quat2gyr(rot_i, Ts)
+                extras[f"node_{i}"]["acc"] = pos2acc(rot_i, pos_i, gravity, Ts)
+                extras[f"node_{i}"]["quat_to_earth"] = rot_i
             return extras
 
         self.measure = imu_measurement_function
@@ -75,7 +82,7 @@ class RCMB_Callback_6D_IMU_at_nodes(RCMG_Callback):
         return extras
 
 
-def draw_angle_and_pos(params: RCMG_Parameters, T, Ts):
+def draw_angle_and_pos(params: RCMG_Parameters, flags: RCMG_Flags, T, Ts):
     # TODO
     ANG_0 = 0.0
     POS_0 = 0.0
@@ -94,9 +101,9 @@ def draw_angle_and_pos(params: RCMG_Parameters, T, Ts):
             params.t_max,
             T,
             Ts,
-            params.randomized_interpolation,
-            params.range_of_motion,
-            params.range_of_motion_method,
+            flags.randomized_interpolation,
+            flags.range_of_motion,
+            flags.range_of_motion_method,
         )
 
     def _random_pos(key, _):
@@ -127,7 +134,17 @@ def draw_angle_and_pos(params: RCMG_Parameters, T, Ts):
     return _draw_angle_and_pos
 
 
-def rcmg(sys: System, T, Ts, params: RCMG_Parameters, callbacks: list[RCMG_Callback]):
+@ft.partial(jax.jit, static_argnums=(2, 3, 4, 6, 7))
+def rcmg(
+    key,
+    sys: System,
+    T,
+    Ts,
+    batchsize: int = 1,
+    params: RCMG_Parameters = RCMG_Parameters(),
+    flags: RCMG_Flags = RCMG_Flags(),
+    callbacks: tuple[RCMG_Callback] = (),
+):
     def generator(key):
         nonlocal sys
         extras = {}
@@ -139,7 +156,7 @@ def rcmg(sys: System, T, Ts, params: RCMG_Parameters, callbacks: list[RCMG_Callb
         # generalized coordinates q
         key, *consume = random.split(key, sys.N * 2 + 1)
         consume = jnp.array(consume).reshape((2, sys.N, 2))
-        q = jax.vmap(draw_angle_and_pos(params, T, Ts))(
+        q = jax.vmap(draw_angle_and_pos(params, flags, T, Ts))(
             sys.links.joint.joint_type, consume[0], consume[1]
         )
         q = q.T  # shape of q before: (sys.N, T / Ts)
@@ -167,7 +184,36 @@ def rcmg(sys: System, T, Ts, params: RCMG_Parameters, callbacks: list[RCMG_Callb
 
         return extras
 
-    return generator
+    pmap_size, vmap_size = _distribute_batchsize(batchsize)
+
+    results = jax.pmap(jax.vmap(generator))(
+        random.split(key, batchsize).reshape(pmap_size, vmap_size, 2)
+    )
+
+    # merge the pmap and vmap batch dimension
+    results = jax.tree_map(
+        lambda arr: arr.reshape((pmap_size * vmap_size,) + arr.shape[2:]), results
+    )
+    results = jax.tree_map(jnp.squeeze, results)
+
+    # do the unsqueeze in this scenario
+    if batchsize == 1:
+        results = jax.tree_map(lambda arr: arr[None], results)
+
+    return results
+
+
+def _distribute_batchsize(batchsize: int) -> Tuple[int, int]:
+    vmap_size_min = 8
+    if batchsize <= vmap_size_min:
+        return 1, batchsize
+    else:
+        n_devices = jax.local_device_count()
+        assert (
+            batchsize % n_devices
+        ) == 0, f"Your GPU count of {n_devices} does not split batchsize {batchsize}"
+        vmap_size = int(batchsize / n_devices)
+        return int(batchsize / vmap_size), vmap_size
 
 
 def pos2acc(q, pos, gravity, Ts):
