@@ -1,13 +1,14 @@
 import functools
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 import jax
 import jax.numpy as jnp
 import tree_utils as tu
 from flax import struct
 from jax.tree_util import tree_map
+
 from x_xy import maths, spatial
 
 Scalar = jax.Array
@@ -367,14 +368,20 @@ class Link(_Base):
 
     @classmethod
     def create(
-        cls, Xtree: Transform, joint: Joint, geoms: Union[Geometry, list[Geometry]]
+        cls,
+        Xtree: Transform,
+        joint: Joint,
+        geoms: Optional[Union[Geometry, list[Geometry]]] = None,
     ):
-        if not isinstance(geoms, list):
-            geoms = [geoms]
+        if geoms is not None:
+            if not isinstance(geoms, list):
+                geoms = [geoms]
 
-        inertia = Inertia.zero()
-        for geom in geoms:
-            inertia = inertia + Inertia.create_from_geometry(geom)
+            inertia = Inertia.zero()
+            for geom in geoms:
+                inertia = inertia + Inertia.create_from_geometry(geom)
+        else:
+            inertia = Inertia.zero()
 
         return Link(Xtree, joint, inertia)
 
@@ -383,6 +390,7 @@ class Link(_Base):
 class System(_Base):
     parent_array: jax.Array
     links: Link
+    gravity: jax.Array = jnp.array([0, 0, 9.81])
 
     @property
     def parent(self) -> jax.Array:
