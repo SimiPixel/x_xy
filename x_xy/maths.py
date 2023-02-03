@@ -4,6 +4,9 @@ import jax
 import jax.numpy as jnp
 import jax.random as jrand
 
+################
+# Safe Functions
+
 
 @partial(jnp.vectorize, signature="(k)->(1)")
 def safe_norm(x):
@@ -31,6 +34,26 @@ def safe_normalize(x):
         lambda x: x / jnp.where(is_zero, 1.0, safe_norm(x)),
         x,
     )
+
+
+##########################
+# Small Quaternion Library
+
+
+@partial(jnp.vectorize, signature="(4)->(4)")
+def quat_positive_w(q):
+    return jax.lax.cond(q[0] < 0.0, lambda q: -q, lambda q: q, q)
+
+
+def quat_unit_quats_like(array):
+    if array.shape[-1] != 4:
+        raise Exception()
+
+    return jnp.ones(array.shape[:-1])[..., None] * jnp.array([1.0, 0, 0, 0])
+
+
+def quat_wrap_to_pi(phi):
+    return (phi + jnp.pi) % (2 * jnp.pi) - jnp.pi
 
 
 @partial(jnp.vectorize, signature="(4),(4)->(4)")
@@ -77,6 +100,21 @@ def rotate(vec: jnp.ndarray, quat: jnp.ndarray):
     ] * safe_norm(vec)
 
 
+@partial(jnp.vectorize, signature="(3),(4)->(3)")
+def safe_rotate(vec: jax.Array, quat: jax.Array):
+    """This is the function my RNNO library originally used."""
+
+    def _quat_rotate(quat, vec):
+        qinv = quat_inv(quat)
+        qvec = jnp.array([0.0, vec[0], vec[1], vec[2]])
+        qvec = quat_mul(quat_mul(quat, qvec), qinv)
+        return qvec[1:] * safe_norm(vec)[0]
+
+    is_zero = jnp.allclose(vec, 0.0)
+    # https://jax.readthedocs.io/en/latest/faq.html#gradients-contain-nan-where-using-where
+    return jnp.where(is_zero, vec, jnp.where(is_zero, vec, _quat_rotate(quat, vec)))
+
+
 def rotate_matrix(mat: jax.Array, quat: jax.Array):
     E = quat_to_3x3(quat)
     return E @ mat @ E.T
@@ -90,6 +128,7 @@ def quat_rot_axis(axis: jnp.ndarray, angle: jnp.ndarray) -> jnp.ndarray:
     Returns:
       A quaternion that rotates around v by angle
     """
+    axis = safe_normalize(axis)
     qx = axis[0] * jnp.sin(angle / 2)
     qy = axis[1] * jnp.sin(angle / 2)
     qz = axis[2] * jnp.sin(angle / 2)
@@ -129,6 +168,48 @@ def quat_random(key: jrand.PRNGKey, batch_shape: tuple[int] = ()) -> jax.Array:
     """Provides a random quaternion, sampled uniformly"""
     shape = batch_shape + (4,)
     return safe_normalize(jrand.normal(key, shape))
+
+
+def euler2quat(intrinsic=True, convention="xyz"):
+    @partial(jnp.vectorize, signature="(l)->(k)")
+    def _euler2quat(euler):
+        xunit = jnp.array([1.0, 0.0, 0.0])
+        yunit = jnp.array([0.0, 1.0, 0.0])
+        zunit = jnp.array([0.0, 0.0, 1.0])
+
+        axes_map = {
+            "x": xunit,
+            "y": yunit,
+            "z": zunit,
+        }
+
+        q1 = quat_rot_axis(axes_map[convention[0]], euler[0])
+        q2 = quat_rot_axis(axes_map[convention[1]], euler[1])
+        q3 = quat_rot_axis(axes_map[convention[2]], euler[2])
+
+        if intrinsic:
+            return quat_mul(q1, quat_mul(q2, q3))
+        else:
+            return quat_mul(q3, quat_mul(q2, q1))
+
+    return _euler2quat
+
+
+@partial(jnp.vectorize, signature="(4)->()")
+def quat_angle(q):
+    phi = 2 * jnp.arctan2(safe_norm(q[1:])[0], q[0])
+    return quat_wrap_to_pi(phi)
+
+
+@partial(jnp.vectorize, signature="(4)->(3),()")
+def quat_to_rot_axis(q):
+    angle = quat_angle(q)
+    axis = safe_normalize(q[1:])
+    return axis, angle
+
+
+###################
+# Matrix Operations
 
 
 def inv_approximate(
