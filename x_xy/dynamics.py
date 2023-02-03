@@ -4,6 +4,7 @@ from typing import Optional
 import jax
 import jax.numpy as jnp
 from flax import struct
+
 from x_xy.base import Force, Motion, State, System
 from x_xy.kinematics import forward_kinematics, update_link_transform
 
@@ -12,7 +13,7 @@ def inverse_dynamics(sys: System, qd: jax.Array, qdd: jax.Array) -> jax.Array:
     # TODO
     # should be -9.81 to pass tests; Roy uses -9.81
     # however vispy has z-axis upwards, then +9.81 better
-    gravity = Motion.create(vel=jnp.array([0, 0, 9.81]))
+    gravity = Motion.create(vel=sys.gravity)
 
     vJ = sys.links.joint.motion.vmap().__mul__(qd)
     aJ = sys.links.joint.motion.vmap().__mul__(qdd)
