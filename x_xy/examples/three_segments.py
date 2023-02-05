@@ -26,6 +26,7 @@ def three_segment_generator(T, Ts):
             sys,
             T,
             Ts,
+            flags=rcmg.RCMG_Flags(),
             callbacks=(
                 rcmg_callbacks.RCMG_Callback_randomize_middle_segment_length(),
                 rcmg_callbacks.RCMG_Callback_random_sensor2segment_position(),
