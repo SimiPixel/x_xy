@@ -39,5 +39,8 @@ setuptools.setup(
         "flax",
         "tqdm",
         "vispy",
-    ],  # also tree_utils package
+        "imageio",
+        "pytest",
+        "tree_utils @ git+https://github.com/SimiPixel/tree_utils.git",
+    ],
 )

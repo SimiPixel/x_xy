@@ -20,3 +20,12 @@ It currently does *not* support
 - collisions (i.e. every body is (sort of) transparent)
 
 and probably won't in the near future.
+
+## Installation
+
+`pip install git+https://github.com/SimiPixel/x_xy.git`
+
+Additionally,
+- `render.py` requires a vispy-backend. Good options are
+    - PyQT5
+    - EGL (headless)
