@@ -53,32 +53,24 @@ class RCMG_Callback:
         return x, extras
 
     def D_at_return_value(self, key, sys, q, x, extras, Ts):
-        """Use this for
+        """
+        The x.rot is
+            Top / FROM   -> EPS
+                                q
+            Bottom / TO  -> NODE
+
+        The x.pos is
+            Top / FROM   -> EPS
+                                pos
+            Bottom / TO  -> NODE   EPS <- Given in Frame
+
+        Use this for
         - creating measurement / sensor data
         - sensor2segment orientation
         - sensor2segment position
         - random absolute orientation
         - creating the return value of the function
         """
-        return extras
-
-
-class RCMB_Callback_6D_IMU_at_nodes(RCMG_Callback):
-    def __init__(self, nodes: list[int], gravity: jax.Array, Ts: float):
-        def imu_measurement_function(rot, pos):
-            extras = {}
-            for i in nodes:
-                extras[f"node_{i}"] = {}
-                rot_i, pos_i = rot[:, i], pos[:, i]
-                extras[f"node_{i}"]["gyr"] = quat2gyr(rot_i, Ts)
-                extras[f"node_{i}"]["acc"] = pos2acc(rot_i, pos_i, gravity, Ts)
-                extras[f"node_{i}"]["quat_to_earth"] = rot_i
-            return extras
-
-        self.measure = imu_measurement_function
-
-    def D_at_return_value(self, key, sys, q, x, extras, Ts):
-        extras.update(self.measure(x.rot, x.pos))
         return extras
 
 
@@ -184,16 +176,14 @@ def rcmg(
 
         return extras
 
-    pmap_size, vmap_size = _distribute_batchsize(batchsize)
+    pmap_size, vmap_size = distribute_batchsize(batchsize)
 
     results = jax.pmap(jax.vmap(generator))(
         random.split(key, batchsize).reshape(pmap_size, vmap_size, 2)
     )
 
     # merge the pmap and vmap batch dimension
-    results = jax.tree_map(
-        lambda arr: arr.reshape((pmap_size * vmap_size,) + arr.shape[2:]), results
-    )
+    results = merge_batchsize(results, pmap_size, vmap_size)
     results = jax.tree_map(jnp.squeeze, results)
 
     # do the unsqueeze in this scenario
@@ -203,7 +193,8 @@ def rcmg(
     return results
 
 
-def _distribute_batchsize(batchsize: int) -> Tuple[int, int]:
+def distribute_batchsize(batchsize: int) -> Tuple[int, int]:
+    """Distributes batchsize accross pmap and vmap."""
     vmap_size_min = 8
     if batchsize <= vmap_size_min:
         return 1, batchsize
@@ -216,6 +207,25 @@ def _distribute_batchsize(batchsize: int) -> Tuple[int, int]:
         return int(batchsize / vmap_size), vmap_size
 
 
+def merge_batchsize(tree, pmap_size, vmap_size):
+    return jax.tree_map(
+        lambda arr: arr.reshape((pmap_size * vmap_size,) + arr.shape[2:]), tree
+    )
+
+
+def expand_batchsize(tree, pmap_size, vmap_size):
+    return jax.tree_map(
+        lambda arr: arr.reshape(
+            (
+                pmap_size,
+                vmap_size,
+            )
+            + arr.shape[1:]
+        ),
+        tree,
+    )
+
+
 def pos2acc(q, pos, gravity, Ts):
     N = len(q)
     acc = jnp.zeros((N, 3))
@@ -223,10 +233,21 @@ def pos2acc(q, pos, gravity, Ts):
     acc = acc + gravity
     # TODO
     # used to be qinv
+    # the reason is that before q represented
+    # FROM LOCAL TO EPS
+    # but now we q represents
+    # FROM EPS TO LOCAL
     return maths.rotate(acc, q)
 
 
 def quat2gyr(q, Ts):
+
+    # this was not needed before
+    # the reason is that before q represented
+    # FROM LOCAL TO EPS
+    # but now we q represents
+    # FROM EPS TO LOCAL
+    q = maths.quat_inv(q)
 
     q = jnp.vstack((q, jnp.array([[1.0, 0, 0, 0]])))
     # 1st-order approx to derivative
