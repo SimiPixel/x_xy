@@ -5,7 +5,6 @@ from typing import Tuple
 import jax
 import jax.numpy as jnp
 import jax.random as random
-from flax import struct
 
 from x_xy import maths
 from x_xy.base import System
@@ -13,14 +12,14 @@ from x_xy.kinematics import forward_kinematics, update_link_transform
 from x_xy.random import random_angle_over_time, random_position_over_time
 
 
-@struct.dataclass
+@dataclass(eq=True, frozen=True)
 class RCMG_Parameters:
     t_min: float = 0.15  # min time between two generated angles
     t_max: float = 0.75  # max time ..
-    dang_min: float = jnp.deg2rad(0)  # minimum angular velocity in deg/s
-    dang_max: float = jnp.deg2rad(120)  # maximum angular velocity in deg/s
-    dang_min_global: float = jnp.deg2rad(0)
-    dang_max_global: float = jnp.deg2rad(60)
+    dang_min: float = float(jnp.deg2rad(0))  # minimum angular velocity in deg/s
+    dang_max: float = float(jnp.deg2rad(120))  # maximum angular velocity in deg/s
+    dang_min_global: float = float(jnp.deg2rad(0))
+    dang_max_global: float = float(jnp.deg2rad(60))
     dpos_min: float = 0.001  # speed of translation
     dpos_max: float = 0.1
     pos_min: float = -2.5
@@ -126,7 +125,7 @@ def draw_angle_and_pos(params: RCMG_Parameters, flags: RCMG_Flags, T, Ts):
     return _draw_angle_and_pos
 
 
-@ft.partial(jax.jit, static_argnums=(2, 3, 4, 6, 7))
+@ft.partial(jax.jit, static_argnums=(2, 3, 4, 5, 6, 7))
 def rcmg(
     key,
     sys: System,
