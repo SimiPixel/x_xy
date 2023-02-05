@@ -77,7 +77,7 @@ class RCMG_Callback_noise_and_bias(rcmg.RCMG_Callback):
 
 
 class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
-    def __init__(self):
+    def __init__(self, symmetric=False):
         @checkify.checkify
         def check_parents(sys):
             checkify.check(
@@ -86,11 +86,15 @@ class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
                 sys.parent[-2:],
             )
 
+        self.symmetric = symmetric
         self.check = check_parents
 
     def A_at_start(self, key, sys, extras, Ts):
         keys = random.split(key, 3)
-        trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
+        if self.symmetric:
+            trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
+        else:
+            trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
         trafo_y = random.uniform(keys[1], minval=-0.02, maxval=0.02, shape=(2,))
         trafo_z = random.uniform(keys[2], minval=-0.02, maxval=0.02, shape=(2,))
 
@@ -113,9 +117,15 @@ class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
 
 
 class RCMG_Callback_random_sensor2segment_position(rcmg.RCMG_Callback):
+    def __init__(self, symmetric=False):
+        self.symmetric = symmetric
+
     def C_after_kinematics(self, key, sys, x: base.Transform, extras, Ts):
         keys = random.split(key, 3)
-        trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
+        if self.symmetric:
+            trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
+        else:
+            trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
         trafo_y = random.uniform(keys[1], minval=-0.05, maxval=0.05, shape=(2,))
         trafo_z = random.uniform(keys[2], minval=-0.05, maxval=0.05, shape=(2,))
 
