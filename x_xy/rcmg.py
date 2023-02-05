@@ -27,7 +27,7 @@ class RCMG_Parameters:
     pos_max: float = +2.5
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class RCMG_Flags:
     randomized_interpolation: bool = False
     range_of_motion: bool = True
