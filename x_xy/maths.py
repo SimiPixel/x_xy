@@ -10,7 +10,7 @@ import jax.random as jrand
 
 @partial(jnp.vectorize, signature="(k)->(1)")
 def safe_norm(x):
-    """Grad-safe for x=0.0"""
+    """Grad-safe for x=0.0. Norm along last axis."""
     assert x.ndim == 1
 
     is_zero = jnp.all(jnp.isclose(x, 0.0), axis=-1, keepdims=False)
@@ -24,7 +24,7 @@ def safe_norm(x):
 
 @partial(jnp.vectorize, signature="(k)->(k)")
 def safe_normalize(x):
-    """Execution- and Grad-safe for x=0.0"""
+    """Execution- and Grad-safe for x=0.0. Normalizes along last axis."""
     assert x.ndim == 1
 
     is_zero = jnp.allclose(x, 0.0)
@@ -83,7 +83,7 @@ def quat_inv(q: jnp.ndarray) -> jnp.ndarray:
     Returns:
       The inverse of q, where qmult(q, inv_quat(q)) = [1, 0, 0, 0].
     """
-    return q * jnp.array([1, -1, -1, -1])
+    return q * jnp.array([1.0, -1, -1, -1])
 
 
 @partial(jnp.vectorize, signature="(3),(4)->(3)")
