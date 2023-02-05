@@ -2,7 +2,7 @@ import os
 
 import jax.numpy as jnp
 
-from tikitree.base import (
+from x_xy.base import (
     Box,
     GeometryCollection,
     Joint,
@@ -12,8 +12,8 @@ from tikitree.base import (
     System,
     Transform,
 )
-from tikitree.dynamics import simulation_step
-from tikitree.render import Launcher, Renderer, animate
+from x_xy.dynamics import simulation_step
+from x_xy.render import Launcher, Renderer, animate
 
 box = Box(
     10.0,

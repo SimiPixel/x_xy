@@ -3,8 +3,8 @@ import jax.random as jrand
 import numpy as np
 import tree_utils as tu
 
-from tikitree import maths, spatial
-from tikitree.base import Force, Inertia, Motion, Transform
+from x_xy import maths, spatial
+from x_xy.base import Force, Inertia, Motion, Transform
 
 """Tests that compare directly to matrix implementations of the same operations."""
 

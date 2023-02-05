@@ -1,9 +1,9 @@
 import jax.numpy as jnp
 
-from tikitree import maths, spatial
-from tikitree.base import Box, Inertia, Joint, JointType, Link, System, Transform
-from tikitree.dynamics import _compute_mass_matrix, inverse_dynamics
-from tikitree.kinematics import forward_kinematics, update_link_transform
+from x_xy import maths, spatial
+from x_xy.base import Box, Inertia, Joint, JointType, Link, System, Transform
+from x_xy.dynamics import _compute_mass_matrix, inverse_dynamics
+from x_xy.kinematics import forward_kinematics, update_link_transform
 
 # these values are computed in MATLAB
 ref = {
@@ -125,7 +125,7 @@ def build_2_link_system_w_inertia():
         Joint(JointType.RevoluteZ),
         geom,
     )
-    sys = System(jnp.array([-1, 0]), l1.batch(l2))
+    sys = System(jnp.array([-1, 0]), l1.batch(l2), jnp.array([0, 0, -9.81]))
     q = jnp.array([jnp.pi / 2, 0.0])
     qd = jnp.array([0.0, 0])
     qdd = qd
@@ -165,7 +165,9 @@ def build_5_link_system_w_inertia():
         Joint(JointType.RevoluteZ),
         geom,
     )
-    sys = System(jnp.array([-1, 0, 0, 1, 3]), l1.batch(l2, l3, l4, l5))
+    sys = System(
+        jnp.array([-1, 0, 0, 1, 3]), l1.batch(l2, l3, l4, l5), jnp.array([0, 0, -9.81])
+    )
     q = jnp.array([1, -2, 3, -4, 5.0])
     qd = -q
     qdd = q
@@ -206,7 +208,9 @@ def build_5_link_system_wo_inertia():
         Joint(JointType.RevoluteZ),
         geom_no_mass,
     )
-    sys = System(jnp.array([-1, 0, 0, 1, 3]), l1.batch(l2, l3, l4, l5))
+    sys = System(
+        jnp.array([-1, 0, 0, 1, 3]), l1.batch(l2, l3, l4, l5), jnp.array([0, 0, -9.81])
+    )
     q = jnp.array([1, -2, 3, -4, 5.0])
     qd = -q
     qdd = q
