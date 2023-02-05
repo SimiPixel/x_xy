@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 
 from x_xy import base, rcmg, rcmg_callbacks
@@ -20,12 +21,14 @@ def three_segment_system() -> base.System:
 def three_segment_generator(T, Ts):
     sys = three_segment_system()
 
+    @jax.jit
     def generator(key):
         return rcmg.rcmg(
             key,
             sys,
             T,
             Ts,
+            params=rcmg.RCMG_Parameters(),
             flags=rcmg.RCMG_Flags(),
             callbacks=(
                 rcmg_callbacks.RCMG_Callback_randomize_middle_segment_length(),
