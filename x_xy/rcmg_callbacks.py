@@ -155,3 +155,20 @@ class RCMG_Callback_random_joint_axes(rcmg.RCMG_Callback):
         sys = update_rot(sys, 6, two_random_quats[0])
         sys = update_rot(sys, 7, two_random_quats[1])
         return super().A_at_start(key, sys, extras, Ts)
+
+
+class RCMG_Callback_random_joint_axes_XYZ(rcmg.RCMG_Callback):
+    def A_at_start(self, key, sys, extras, Ts):
+        def update_joint_type(sys: base.System, at, new_joint_type):
+            return sys.replace(
+                links=sys.links.replace(
+                    joint=sys.links.joint.index_set(
+                        at, sys.links.joint.take(at).replace(joint_type=new_joint_type)
+                    )
+                )
+            )
+
+        new_joint_types = random.choice(key, 3, shape=(2,))
+        sys = update_joint_type(sys, 6, new_joint_types[0])
+        sys = update_joint_type(sys, 7, new_joint_types[1])
+        return super().A_at_start(key, sys, extras, Ts)
