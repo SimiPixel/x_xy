@@ -35,6 +35,7 @@ def rcmg(
     pos_max=+2.5,
     param_ident=None,
     jit=True,
+    legacy=False,
 ):
     pmap_size, vmap_size = rcmg_new.distribute_batchsize(batchsize)
 
@@ -109,7 +110,7 @@ def rcmg(
         JA_12 = jnp.transpose(ANG_12)
         JA_32 = jnp.transpose(ANG_32)
 
-        q = maths.euler2quat()(ORI)
+        q = maths.quat_euler()(ORI)
 
         key, consume = random.split(key)
         q_12, q_23 = random_hinge(consume, JA_12, JA_32)
@@ -170,6 +171,32 @@ def rcmg(
         }
 
         return add_noise_and_bias(key, data)
+
+    if legacy:
+
+        def legacy_generator(key):
+            data = generator(key)
+            data_expanded = rcmg_new.expand_batchsize(data, pmap_size, vmap_size)
+            X_exp = data_expanded["X"]
+            y_exp = data_expanded["y"]
+            X = jnp.concatenate(
+                (X_exp[0]["acc"], X_exp[0]["gyr"], X_exp[2]["acc"], X_exp[2]["gyr"]),
+                axis=-1,
+            )
+            y = jnp.concatenate(
+                (maths.quat_positive_w(y_exp[1]), maths.quat_positive_w(y_exp[2])),
+                axis=-1,
+            )
+            toy_acc = jnp.zeros_like(X_exp[0]["acc"])
+            chain_dims = {value: toy_acc for value in ["d", "r_12", "r_23"]}
+
+            return (
+                X,
+                {"quaternions": y, "chain_dimensions": chain_dims},
+                maths.quat_unit_quats_like(y_exp[1]),
+            )
+
+        return legacy_generator
 
     return generator
 
