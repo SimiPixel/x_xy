@@ -11,6 +11,11 @@ from x_xy.base import System
 from x_xy.kinematics import forward_kinematics, update_link_transform
 from x_xy.random import random_angle_over_time, random_position_over_time
 
+# TODO
+# dang_min_global and dang_max_global are currently unused
+# the reason is that in `draw_angle_and_pos` we don't differentiate
+# between a global or local dof; how would we even do that?
+
 
 @dataclass(eq=True, frozen=True)
 class RCMG_Parameters:
@@ -72,8 +77,13 @@ class RCMG_Callback:
         """
         return extras
 
+    def hidden(self, key, vmapped_system, q):
+        return vmapped_system
 
-def draw_angle_and_pos(params: RCMG_Parameters, flags: RCMG_Flags, T, Ts):
+
+def draw_angle_and_pos(
+    params: RCMG_Parameters, flags: RCMG_Flags, T, Ts, floating_base: bool = False
+):
     # TODO
     ANG_0 = 0.0
     POS_0 = 0.0
@@ -86,8 +96,8 @@ def draw_angle_and_pos(params: RCMG_Parameters, flags: RCMG_Flags, T, Ts):
             key_t,
             key_ang,
             ANG_0,
-            params.dang_min,
-            params.dang_max,
+            params.dang_min_global if floating_base else params.dang_min,
+            params.dang_max_global if floating_base else params.dang_max,
             params.t_min,
             params.t_max,
             T,
@@ -147,23 +157,31 @@ def rcmg(
         # generalized coordinates q
         key, *consume = random.split(key, sys.N * 2 + 1)
         consume = jnp.array(consume).reshape((2, sys.N, 2))
+        q_floating_base = jax.vmap(
+            draw_angle_and_pos(params, flags, T, Ts, floating_base=True)
+        )(sys.links.joint.joint_type[:6], consume[0][:6], consume[1][:6])
         q = jax.vmap(draw_angle_and_pos(params, flags, T, Ts))(
-            sys.links.joint.joint_type, consume[0], consume[1]
+            sys.links.joint.joint_type[6:], consume[0][6:], consume[1][6:]
         )
+        q = jnp.concatenate((q_floating_base, q))
         q = q.T  # shape of q before: (sys.N, T / Ts)
 
         for cb in callbacks:
             key, consume = random.split(key)
             sys, q, extras = cb.B_before_kinematics(consume, sys, q, extras, Ts)
 
-        @jax.vmap
-        def vmap_forward_kinematics(q):
-            nonlocal sys
+        @ft.partial(jax.vmap, in_axes=(None, 0))
+        def vmap_update_link_transform(sys, q):
             sys = update_link_transform(sys, q)
-            x = forward_kinematics(sys)
-            return x
+            return sys
 
-        x = vmap_forward_kinematics(q)
+        vmapped_system = vmap_update_link_transform(sys, q)
+
+        for cb in callbacks:
+            key, consume = random.split(key)
+            vmapped_system = cb.hidden(consume, vmapped_system, q)
+
+        x = jax.vmap(forward_kinematics)(vmapped_system)
 
         for cb in callbacks:
             key, consume = random.split(key)
@@ -199,6 +217,7 @@ def distribute_batchsize(batchsize: int) -> Tuple[int, int]:
         return 1, batchsize
     else:
         n_devices = jax.local_device_count()
+        print(n_devices)
         assert (
             batchsize % n_devices
         ) == 0, f"Your GPU count of {n_devices} does not split batchsize {batchsize}"
