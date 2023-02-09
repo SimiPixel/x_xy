@@ -1,9 +1,11 @@
+import functools as ft
+
 import jax
 import jax.numpy as jnp
 from jax import random
 from jax.experimental import checkify
 
-from x_xy import base, maths, rcmg
+from x_xy import base, maths, rcmg, rcmg_old
 
 
 class RCMG_Callback_6D_IMU_at_nodes(rcmg.RCMG_Callback):
@@ -77,7 +79,7 @@ class RCMG_Callback_noise_and_bias(rcmg.RCMG_Callback):
 
 
 class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
-    def __init__(self, symmetric=False):
+    def __init__(self):
         @checkify.checkify
         def check_parents(sys):
             checkify.check(
@@ -86,17 +88,14 @@ class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
                 sys.parent[-2:],
             )
 
-        self.symmetric = symmetric
         self.check = check_parents
 
     def A_at_start(self, key, sys, extras, Ts):
         keys = random.split(key, 3)
-        if self.symmetric:
-            trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
-        else:
-            trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
-        trafo_y = random.uniform(keys[1], minval=-0.02, maxval=0.02, shape=(2,))
-        trafo_z = random.uniform(keys[2], minval=-0.02, maxval=0.02, shape=(2,))
+
+        trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
+        trafo_y = random.uniform(keys[1], minval=-0.2, maxval=0.2, shape=(2,))
+        trafo_z = random.uniform(keys[2], minval=-0.2, maxval=0.2, shape=(2,))
 
         self.check(sys)
 
@@ -109,35 +108,49 @@ class RCMG_Callback_randomize_middle_segment_length(rcmg.RCMG_Callback):
                 )
             )
 
-        # TODO
-        # That minus sign is arbitrary..
-        sys = update_position(sys, 6, jnp.array([-trafo_x[0], trafo_y[0], trafo_z[0]]))
+        sys = update_position(sys, 6, jnp.array([trafo_x[0], trafo_y[0], trafo_z[0]]))
         sys = update_position(sys, 7, jnp.array([trafo_x[1], trafo_y[1], trafo_z[1]]))
         return super().A_at_start(key, sys, extras, Ts)
 
 
 class RCMG_Callback_random_sensor2segment_position(rcmg.RCMG_Callback):
-    def __init__(self, symmetric=False):
-        self.symmetric = symmetric
-
     def C_after_kinematics(self, key, sys, x: base.Transform, extras, Ts):
         keys = random.split(key, 3)
-        if self.symmetric:
-            trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
-        else:
-            trafo_x = random.uniform(keys[0], minval=0.05, maxval=0.2, shape=(2,))
-        trafo_y = random.uniform(keys[1], minval=-0.05, maxval=0.05, shape=(2,))
-        trafo_z = random.uniform(keys[2], minval=-0.05, maxval=0.05, shape=(2,))
+        trafo_x = random.uniform(keys[0], minval=-0.2, maxval=0.2, shape=(2,))
+        trafo_y = random.uniform(keys[1], minval=-0.2, maxval=0.2, shape=(2,))
+        trafo_z = random.uniform(keys[2], minval=-0.2, maxval=0.2, shape=(2,))
 
         def update_x(x, at, new_pos):
             segment_to_sensor_trafo1 = base.Transform.create(pos=new_pos)
             new_trafo = segment_to_sensor_trafo1.do(x.take(at))
             return x.index_set(at, new_trafo)
 
-        x = update_x(x, 6, jnp.array([-trafo_x[0], trafo_y[0], trafo_z[0]]))
+        x = update_x(x, 6, jnp.array([trafo_x[0], trafo_y[0], trafo_z[0]]))
         x = update_x(x, 7, jnp.array([trafo_x[0], trafo_y[0], trafo_z[0]]))
 
         return super().C_after_kinematics(key, sys, x, extras, Ts)
+
+
+class RCMG_Callback_better_random_joint_axes(rcmg.RCMG_Callback):
+    def hidden(self, key, vmapped_system, q):
+        # modifiy `transform` property of vmapped system
+        # vmap is across time
+
+        # keep last axis due to detail of `random_hinge` implementation
+        q_joint1, q_joint2 = rcmg_old.random_hinge(key, q[:, 6:7], q[:, 7:8])
+
+        @ft.partial(jax.vmap, in_axes=(0, None, 0))
+        def update_transform(sys, at, q_joint):
+            new_transform = base.Transform.create(rot=q_joint).do(
+                sys.links.take(at).Xtree
+            )
+            new_transforms = sys.links.transform.index_set(at, new_transform)
+            return sys.replace(links=sys.links.replace(transform=new_transforms))
+
+        vmapped_system = update_transform(vmapped_system, 6, q_joint1)
+        vmapped_system = update_transform(vmapped_system, 7, q_joint2)
+
+        return super().hidden(key, vmapped_system, q)
 
 
 class RCMG_Callback_random_joint_axes(rcmg.RCMG_Callback):
@@ -152,9 +165,17 @@ class RCMG_Callback_random_joint_axes(rcmg.RCMG_Callback):
             )
 
         two_random_quats = maths.quat_random(key, (2,))
+        # TODO
+        self.two_random_quats = two_random_quats
         sys = update_rot(sys, 6, two_random_quats[0])
         sys = update_rot(sys, 7, two_random_quats[1])
         return super().A_at_start(key, sys, extras, Ts)
+
+    def C_after_kinematics(self, key, sys, x, extras, Ts):
+        def undo_Xtree_transformation(x, at, additional_rotation):
+            pass
+
+        return super().C_after_kinematics(key, sys, x, extras, Ts)
 
 
 class RCMG_Callback_random_joint_axes_XYZ(rcmg.RCMG_Callback):
