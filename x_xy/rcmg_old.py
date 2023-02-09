@@ -164,12 +164,31 @@ def rcmg(
         gyr_1 = rcmg_new.quat2gyr(q_1, Ts)
         gyr_3 = rcmg_new.quat2gyr(q_3, Ts)
 
-        return {
+        data = {
             "X": {0: {"acc": acc_1, "gyr": gyr_1}, 2: {"acc": acc_3, "gyr": gyr_3}},
             "y": {1: relquat_keepFrame(q_1, q_2), 2: relquat_keepFrame(q_2, q_3)},
         }
 
+        return add_noise_and_bias(key, data)
+
     return generator
+
+
+def add_noise_and_bias(key, data):
+    noisy_data = {"X": {0: {}, 2: {}}, "y": data["y"]}
+    noise_level = {"gyr": jnp.deg2rad(1.0), "acc": 0.5}
+    bias_level = noise_level
+
+    for i in [0, 2]:
+        for sensor in ["acc", "gyr"]:
+            measure = data["X"][i][sensor]
+            key, c1, c2 = random.split(key, 3)
+            noise = random.normal(c1, shape=measure.shape) * noise_level[sensor]
+            bl = bias_level[sensor]
+            bias = random.uniform(c2, minval=-bl, maxval=+bl)
+            noisy_data["X"][i][sensor] = measure + noise + bias
+
+    return noisy_data
 
 
 def relquat_keepFrame(q1, q2):
