@@ -175,6 +175,7 @@ def rcmg(
 
 
 def add_noise_and_bias(key, data):
+    print("uses noise and bias..")
     noisy_data = {"X": {0: {}, 2: {}}, "y": data["y"]}
     noise_level = {"gyr": jnp.deg2rad(1.0), "acc": 0.5}
     bias_level = noise_level
