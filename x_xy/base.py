@@ -46,7 +46,7 @@ class _Base:
         return tree_map(lambda x: x[beg:end], self)
 
     def take(self, i, axis=0) -> Any:
-        return tree_map(lambda x: jnp.take(x, i, axis=axis, mode="wrap"), self)
+        return tree_map(lambda x: jnp.take(x, i, axis=axis, mode="fill"), self)
 
     def hstack(self, *others: Any) -> Any:
         return tree_map(lambda *x: jnp.hstack(x), self, *others)
