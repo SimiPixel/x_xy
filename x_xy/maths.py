@@ -170,7 +170,7 @@ def quat_random(key: jrand.PRNGKey, batch_shape: tuple[int] = ()) -> jax.Array:
     return safe_normalize(jrand.normal(key, shape))
 
 
-def euler2quat(intrinsic=True, convention="xyz"):
+def quat_euler(intrinsic=True, convention="xyz"):
     @partial(jnp.vectorize, signature="(l)->(k)")
     def _euler2quat(euler):
         xunit = jnp.array([1.0, 0.0, 0.0])
