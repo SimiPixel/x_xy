@@ -40,8 +40,14 @@ def safe_normalize(x):
 # Small Quaternion Library
 
 
+# APPROVED
+# Engineering Log of 10.02.23 reveals that
+# this is a useless operation
+# delete it
+# TODO
 @partial(jnp.vectorize, signature="(4)->(4)")
 def quat_positive_w(q):
+    return q
     return jax.lax.cond(q[0] < 0.0, lambda q: -q, lambda q: q, q)
 
 
@@ -52,10 +58,12 @@ def quat_unit_quats_like(array):
     return jnp.ones(array.shape[:-1])[..., None] * jnp.array([1.0, 0, 0, 0])
 
 
+# APPROVED
 def quat_wrap_to_pi(phi):
     return (phi + jnp.pi) % (2 * jnp.pi) - jnp.pi
 
 
+# APPROVED
 @partial(jnp.vectorize, signature="(4),(4)->(4)")
 def quat_mul(u: jnp.ndarray, v: jnp.ndarray) -> jnp.ndarray:
     """Multiplies two quaternions.
@@ -73,9 +81,13 @@ def quat_mul(u: jnp.ndarray, v: jnp.ndarray) -> jnp.ndarray:
             u[0] * v[3] + u[1] * v[2] - u[2] * v[1] + u[3] * v[0],
         ]
     )
+    # EL 20.02.23 not normalizing changes the result when
+    # training the network. However, it becomes better?
+    # TODO
     return safe_normalize(q)
 
 
+# APPROVED
 def quat_inv(q: jnp.ndarray) -> jnp.ndarray:
     """Calculates the inverse of quaternion q.
     Args:
@@ -86,6 +98,7 @@ def quat_inv(q: jnp.ndarray) -> jnp.ndarray:
     return q * jnp.array([1.0, -1, -1, -1])
 
 
+# APPROVED
 @partial(jnp.vectorize, signature="(3),(4)->(3)")
 def rotate(vec: jnp.ndarray, quat: jnp.ndarray):
     """Rotates a vector vec by a unit quaternion quat.
@@ -100,19 +113,14 @@ def rotate(vec: jnp.ndarray, quat: jnp.ndarray):
     ] * safe_norm(vec)
 
 
+# APPROVED
 @partial(jnp.vectorize, signature="(3),(4)->(3)")
 def safe_rotate(vec: jax.Array, quat: jax.Array):
     """This is the function my RNNO library originally used."""
-
-    def _quat_rotate(quat, vec):
-        qinv = quat_inv(quat)
-        qvec = jnp.array([0.0, vec[0], vec[1], vec[2]])
-        qvec = quat_mul(quat_mul(quat, qvec), qinv)
-        return qvec[1:] * safe_norm(vec)[0]
-
+    raise Exception("try `rotate` first; Only use if really needed.")
     is_zero = jnp.allclose(vec, 0.0)
     # https://jax.readthedocs.io/en/latest/faq.html#gradients-contain-nan-where-using-where
-    return jnp.where(is_zero, vec, jnp.where(is_zero, vec, _quat_rotate(quat, vec)))
+    return jnp.where(is_zero, vec, jnp.where(is_zero, vec, rotate(vec, quat)))
 
 
 def rotate_matrix(mat: jax.Array, quat: jax.Array):
@@ -120,6 +128,8 @@ def rotate_matrix(mat: jax.Array, quat: jax.Array):
     return E @ mat @ E.T
 
 
+# APPROVED
+@partial(jnp.vectorize, signature="(3),()->(4)")
 def quat_rot_axis(axis: jnp.ndarray, angle: jnp.ndarray) -> jnp.ndarray:
     """Provides a quaternion that describes rotating around axis v by angle.
     Args:
@@ -136,6 +146,8 @@ def quat_rot_axis(axis: jnp.ndarray, angle: jnp.ndarray) -> jnp.ndarray:
     return jnp.array([qw, qx, qy, qz])
 
 
+# APPROVED
+@partial(jnp.vectorize, signature="(3,3)->(4)")
 def quat_from_3x3(m: jnp.ndarray) -> jnp.ndarray:
     """Converts 3x3 rotation matrix to quaternion."""
     w = jnp.sqrt(1 + m[0, 0] + m[1, 1] + m[2, 2]) / 2.0
@@ -145,6 +157,8 @@ def quat_from_3x3(m: jnp.ndarray) -> jnp.ndarray:
     return jnp.array([w, x, y, z])
 
 
+# APPROVED
+@partial(jnp.vectorize, signature="(4)->(3,3)")
 def quat_to_3x3(q: jnp.ndarray) -> jnp.ndarray:
     """Converts quaternion to 3x3 rotation matrix."""
     d = jnp.dot(q, q)
@@ -164,43 +178,44 @@ def quat_to_3x3(q: jnp.ndarray) -> jnp.ndarray:
     )
 
 
+# APPROVED
 def quat_random(key: jrand.PRNGKey, batch_shape: tuple[int] = ()) -> jax.Array:
     """Provides a random quaternion, sampled uniformly"""
     shape = batch_shape + (4,)
     return safe_normalize(jrand.normal(key, shape))
 
 
-def quat_euler(intrinsic=True, convention="xyz"):
-    @partial(jnp.vectorize, signature="(l)->(k)")
-    def _euler2quat(euler):
-        xunit = jnp.array([1.0, 0.0, 0.0])
-        yunit = jnp.array([0.0, 1.0, 0.0])
-        zunit = jnp.array([0.0, 0.0, 1.0])
+# APPROVED
+@partial(jnp.vectorize, signature="(3)->(4)", excluded=(1, 2))
+def quat_euler(angles, intrinsic=True, convention="xyz"):
+    xunit = jnp.array([1.0, 0.0, 0.0])
+    yunit = jnp.array([0.0, 1.0, 0.0])
+    zunit = jnp.array([0.0, 0.0, 1.0])
 
-        axes_map = {
-            "x": xunit,
-            "y": yunit,
-            "z": zunit,
-        }
+    axes_map = {
+        "x": xunit,
+        "y": yunit,
+        "z": zunit,
+    }
 
-        q1 = quat_rot_axis(axes_map[convention[0]], euler[0])
-        q2 = quat_rot_axis(axes_map[convention[1]], euler[1])
-        q3 = quat_rot_axis(axes_map[convention[2]], euler[2])
+    q1 = quat_rot_axis(axes_map[convention[0]], angles[0])
+    q2 = quat_rot_axis(axes_map[convention[1]], angles[1])
+    q3 = quat_rot_axis(axes_map[convention[2]], angles[2])
 
-        if intrinsic:
-            return quat_mul(q1, quat_mul(q2, q3))
-        else:
-            return quat_mul(q3, quat_mul(q2, q1))
-
-    return _euler2quat
+    if intrinsic:
+        return quat_mul(q1, quat_mul(q2, q3))
+    else:
+        return quat_mul(q3, quat_mul(q2, q1))
 
 
+# APPROVED
 @partial(jnp.vectorize, signature="(4)->()")
 def quat_angle(q):
     phi = 2 * jnp.arctan2(safe_norm(q[1:])[0], q[0])
     return quat_wrap_to_pi(phi)
 
 
+# APPROVED
 @partial(jnp.vectorize, signature="(4)->(3),()")
 def quat_to_rot_axis(q):
     angle = quat_angle(q)
