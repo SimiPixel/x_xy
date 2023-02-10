@@ -110,7 +110,7 @@ def rcmg(
         JA_12 = jnp.transpose(ANG_12)
         JA_32 = jnp.transpose(ANG_32)
 
-        q = maths.quat_euler()(ORI)
+        q = maths.quat_euler(ORI)
 
         key, consume = random.split(key)
         q_12, q_23 = random_hinge(consume, JA_12, JA_32)
