@@ -39,6 +39,11 @@ def safe_normalize(x):
 ##########################
 # Small Quaternion Library
 
+# APPROVED
+# it does not matter if you use q1_inv x q2 OR q1 x q2_inv
+def quat_angle_error(q, qhat):
+    return jnp.abs(quat_angle(quat_mul(quat_inv(q), qhat)))
+
 
 # APPROVED
 # Engineering Log of 10.02.23 reveals that
