@@ -191,26 +191,29 @@ def quat_random(key: jrand.PRNGKey, batch_shape: tuple[int] = ()) -> jax.Array:
 
 
 # APPROVED
-@partial(jnp.vectorize, signature="(3)->(4)", excluded=(1, 2))
 def quat_euler(angles, intrinsic=True, convention="xyz"):
-    xunit = jnp.array([1.0, 0.0, 0.0])
-    yunit = jnp.array([0.0, 1.0, 0.0])
-    zunit = jnp.array([0.0, 0.0, 1.0])
+    @partial(jnp.vectorize, signature="(3)->(4)")
+    def _quat_euler(angles):
+        xunit = jnp.array([1.0, 0.0, 0.0])
+        yunit = jnp.array([0.0, 1.0, 0.0])
+        zunit = jnp.array([0.0, 0.0, 1.0])
 
-    axes_map = {
-        "x": xunit,
-        "y": yunit,
-        "z": zunit,
-    }
+        axes_map = {
+            "x": xunit,
+            "y": yunit,
+            "z": zunit,
+        }
 
-    q1 = quat_rot_axis(axes_map[convention[0]], angles[0])
-    q2 = quat_rot_axis(axes_map[convention[1]], angles[1])
-    q3 = quat_rot_axis(axes_map[convention[2]], angles[2])
+        q1 = quat_rot_axis(axes_map[convention[0]], angles[0])
+        q2 = quat_rot_axis(axes_map[convention[1]], angles[1])
+        q3 = quat_rot_axis(axes_map[convention[2]], angles[2])
 
-    if intrinsic:
-        return quat_mul(q1, quat_mul(q2, q3))
-    else:
-        return quat_mul(q3, quat_mul(q2, q1))
+        if intrinsic:
+            return quat_mul(q1, quat_mul(q2, q3))
+        else:
+            return quat_mul(q3, quat_mul(q2, q1))
+
+    return _quat_euler(angles)
 
 
 # APPROVED
