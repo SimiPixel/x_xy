@@ -26,7 +26,7 @@ def rcmg(
     t_min=0.15,  # min time between two generated angles
     t_max=0.75,  # max time ...
     dang_min=jnp.deg2rad(0),  # minimum angular velocity in deg/s
-    dang_max=jnp.deg2rad(180),  # maximum angular velocity in deg/s
+    dang_max=jnp.deg2rad(120),  # maximum angular velocity in deg/s
     dang_min_global=jnp.deg2rad(0),
     dang_max_global=jnp.deg2rad(60),
     dpos_min=0.001,  # speed of translation
@@ -34,8 +34,6 @@ def rcmg(
     pos_min=-2.5,
     pos_max=+2.5,
     param_ident=None,
-    jit=True,
-    legacy=False,
 ):
     pmap_size, vmap_size = rcmg_new.distribute_batchsize(batchsize)
 
@@ -50,7 +48,6 @@ def rcmg(
 
     @jax.pmap
     @jax.vmap
-    @(jax.jit if jit else lambda f: f)
     def generateMovementSparse(key):
 
         if param_ident is not None:
@@ -67,8 +64,8 @@ def rcmg(
         @jax.vmap
         def constraint_generateAnglePoints(key_ang, key_t):
             return xxy_random.random_angle_over_time(
+                key_ang,  # TODO
                 key_t,
-                key_ang,
                 0.0,
                 dang_min_global,
                 dang_max_global,
@@ -77,7 +74,7 @@ def rcmg(
                 T,
                 Ts,
                 randomized_interpolation,
-                range_of_motion,
+                False,  # global orientation has no ROM restriction
                 range_of_motion_method,
             )
 
@@ -91,8 +88,8 @@ def rcmg(
         @jax.vmap
         def constraint_generateAnglePoints(key_ang, key_t):
             return xxy_random.random_angle_over_time(
+                key_ang,  # TODO
                 key_t,
-                key_ang,
                 0.0,
                 dang_min,
                 dang_max,
@@ -121,8 +118,6 @@ def rcmg(
         else:
             q_1, q_2, q_3 = q1_is_anchor(q, q_12, q_23)
 
-        q_1, q_2, q_3 = map(maths.quat_positive_w, (q_1, q_2, q_3))
-
         @jax.vmap
         def constraint_generatePosPoints(key):
             return xxy_random.random_position_over_time(
@@ -143,9 +138,9 @@ def rcmg(
         pos = constraint_generatePosPoints(jnp.array(consume))
         pos = jnp.transpose(pos)
 
-        r_12_earth = maths.safe_rotate(r_12, q_1)
-        d_earth = maths.safe_rotate(d, q_2)
-        r_23_earth = maths.safe_rotate(r_23, q_3)
+        r_12_earth = maths.rotate(r_12, q_1)
+        d_earth = maths.rotate(d, q_2)
+        r_23_earth = maths.rotate(r_23, q_3)
 
         if randomized_anchors:
             key, consume = random.split(key)
@@ -170,44 +165,18 @@ def rcmg(
             "y": {1: relquat_keepFrame(q_1, q_2), 2: relquat_keepFrame(q_2, q_3)},
         }
 
-        return add_noise_and_bias(key, data)
-
-    if legacy:
-
-        def legacy_generator(key):
-            data = generator(key)
-            data_expanded = rcmg_new.expand_batchsize(data, pmap_size, vmap_size)
-            X_exp = data_expanded["X"]
-            y_exp = data_expanded["y"]
-            X = jnp.concatenate(
-                (X_exp[0]["acc"], X_exp[0]["gyr"], X_exp[2]["acc"], X_exp[2]["gyr"]),
-                axis=-1,
-            )
-            y = jnp.concatenate(
-                (maths.quat_positive_w(y_exp[1]), maths.quat_positive_w(y_exp[2])),
-                axis=-1,
-            )
-            toy_acc = jnp.zeros_like(X_exp[0]["acc"])
-            chain_dims = {value: toy_acc for value in ["d", "r_12", "r_23"]}
-
-            return (
-                X,
-                {"quaternions": y, "chain_dimensions": chain_dims},
-                maths.quat_unit_quats_like(y_exp[1]),
-            )
-
-        return legacy_generator
+        return _add_noise_and_bias_to_gyr_and_acc(key, data)
 
     return generator
 
 
-def add_noise_and_bias(key, data):
-    print("uses noise and bias..")
-    noisy_data = {"X": {0: {}, 2: {}}, "y": data["y"]}
+def _add_noise_and_bias_to_gyr_and_acc(key, data):
+    noisy_data = {"X": {}, "y": data["y"]}
     noise_level = {"gyr": jnp.deg2rad(1.0), "acc": 0.5}
     bias_level = noise_level
 
-    for i in [0, 2]:
+    for i in data["X"].keys():
+        noisy_data["X"].update({i: {}})
         for sensor in ["acc", "gyr"]:
             measure = data["X"][i][sensor]
             key, c1, c2 = random.split(key, 3)
@@ -220,8 +189,6 @@ def add_noise_and_bias(key, data):
 
 
 def relquat_keepFrame(q1, q2):
-    q1 = maths.safe_normalize(q1)
-    q2 = maths.safe_normalize(q2)
     return maths.quat_mul(q1, maths.quat_inv(q2))
 
 
