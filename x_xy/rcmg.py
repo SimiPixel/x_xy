@@ -244,11 +244,13 @@ def expand_batchsize(tree, pmap_size, vmap_size):
     )
 
 
+# APPROVED
 def pos2acc(q, pos, gravity, Ts):
     N = len(q)
     acc = jnp.zeros((N, 3))
     acc = acc.at[1:-1].set((pos[:-2] + pos[2:] - 2 * pos[1:-1]) / Ts**2)
-    acc = acc + gravity
+    # gravity is a scalar value
+    acc = acc + jnp.array([0.0, 0, gravity])
     # TODO
     # used to be qinv
     # the reason is that before q represented
@@ -258,6 +260,7 @@ def pos2acc(q, pos, gravity, Ts):
     return maths.rotate(acc, q)
 
 
+# APPROVED
 def quat2gyr(q, Ts):
 
     # this was not needed before
