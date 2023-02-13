@@ -5,6 +5,7 @@ from jax import random
 from x_xy import maths
 
 
+# APPROVED
 def random_angle_over_time(
     key_t,
     key_ang,
@@ -72,6 +73,7 @@ def random_angle_over_time(
     return q
 
 
+# APPROVED
 def random_position_over_time(
     key, POS_0, pos_min, pos_max, dpos_min, dpos_max, t_min, t_max, T, Ts, max_it
 ):
