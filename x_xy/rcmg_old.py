@@ -18,7 +18,7 @@ from x_xy import rcmg as rcmg_new
 def rcmg(
     batchsize,
     randomized_interpolation=False,
-    randomized_anchors=False,
+    randomized_anchors=True,
     range_of_motion=True,
     range_of_motion_method="uniform",
     Ts=0.01,  # seconds
