@@ -249,8 +249,12 @@ def pos2acc(q, pos, gravity, Ts):
     N = len(q)
     acc = jnp.zeros((N, 3))
     acc = acc.at[1:-1].set((pos[:-2] + pos[2:] - 2 * pos[1:-1]) / Ts**2)
+
+    if isinstance(gravity, float) or gravity.shape == ():
+        gravity = jnp.array([0.0, 0, gravity])
+
     # gravity is a scalar value
-    acc = acc + jnp.array([0.0, 0, gravity])
+    acc = acc + gravity
     # TODO
     # used to be qinv
     # the reason is that before q represented
