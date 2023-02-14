@@ -11,11 +11,6 @@ from x_xy.base import System
 from x_xy.kinematics import forward_kinematics, update_link_transform
 from x_xy.random import random_angle_over_time, random_position_over_time
 
-# TODO
-# dang_min_global and dang_max_global are currently unused
-# the reason is that in `draw_angle_and_pos` we don't differentiate
-# between a global or local dof; how would we even do that?
-
 
 @dataclass(eq=True, frozen=True)
 class RCMG_Parameters:

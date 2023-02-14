@@ -49,32 +49,8 @@ class RCMG_Callback_qrel_to_parent(rcmg.RCMG_Callback):
 
 
 class RCMG_Callback_noise_and_bias(rcmg.RCMG_Callback):
-    def __init__(
-        self,
-        nodes: list[int],
-        noise_stds={"gyr": jnp.deg2rad(1.0), "acc": 0.5},
-        bias_minmax={"gyr": (-jnp.deg2rad(1.0), jnp.deg2rad(1.0)), "acc": (-0.5, 0.5)},
-    ):
-        def noisify(extras, key):
-            for i in nodes:
-                X_i = extras["X"][i]
-                for sensor in ["acc", "gyr"]:
-                    measurement = X_i[sensor]
-                    key, c1, c2 = random.split(key, 3)
-                    noise = (
-                        random.normal(c1, shape=measurement.shape) * noise_stds[sensor]
-                    )
-                    bias = random.uniform(
-                        c2, minval=bias_minmax[sensor][0], maxval=bias_minmax[sensor][1]
-                    )
-                    X_i[sensor] = measurement + noise + bias
-
-            return extras
-
-        self.noisify = noisify
-
     def D_at_return_value(self, key, sys, q, x, extras, Ts):
-        extras.update(self.noisify(extras, key))
+        extras.update(rcmg_old._add_noise_and_bias_to_gyr_and_acc(key, extras))
         return extras
 
 
