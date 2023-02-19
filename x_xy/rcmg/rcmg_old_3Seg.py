@@ -1,9 +1,8 @@
 """
-This module tests that the functionality migration from `rnno` to this package
-has been kept.
-
-What this tests:
-    - I build a three segment kinematic chain 6-(5)-7
+This is the original Random Chain Motion Generator (RCMG) as proposed and used in
+the FUSION paper, and the AUTOMED paper.
+It was approved at the 16.02.23 to produce identically results as the
+`train_data_generator.py` module that is part of the `rnno` package.
 """
 
 import jax
@@ -15,7 +14,7 @@ from x_xy import random as xxy_random
 from x_xy import rcmg as rcmg_new
 
 
-def rcmg(
+def rcmg_3Seg(
     batchsize,
     randomized_interpolation=False,
     randomized_anchors=True,
