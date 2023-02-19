@@ -212,7 +212,6 @@ def distribute_batchsize(batchsize: int) -> Tuple[int, int]:
         return 1, batchsize
     else:
         n_devices = jax.local_device_count()
-        print(n_devices)
         assert (
             batchsize % n_devices
         ) == 0, f"Your GPU count of {n_devices} does not split batchsize {batchsize}"
