@@ -11,7 +11,7 @@ import jax.random as random
 
 from x_xy import maths
 from x_xy import random as xxy_random
-from x_xy import rcmg as rcmg_new
+from x_xy.rcmg import rcmg as rcmg_new
 
 
 def rcmg_3Seg(
