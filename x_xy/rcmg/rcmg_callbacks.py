@@ -5,7 +5,8 @@ import jax.numpy as jnp
 from jax import random
 from jax.experimental import checkify
 
-from x_xy import base, maths, rcmg, rcmg_old
+from x_xy import base, maths
+from x_xy.rcmg import rcmg, rcmg_old_3Seg
 
 
 class RCMG_Callback_6D_IMU_at_nodes(rcmg.RCMG_Callback):
@@ -50,7 +51,7 @@ class RCMG_Callback_qrel_to_parent(rcmg.RCMG_Callback):
 
 class RCMG_Callback_noise_and_bias(rcmg.RCMG_Callback):
     def D_at_return_value(self, key, sys, q, x, extras, Ts):
-        extras.update(rcmg_old._add_noise_and_bias_to_gyr_and_acc(key, extras))
+        extras.update(rcmg_old_3Seg._add_noise_and_bias_to_gyr_and_acc(key, extras))
         return extras
 
 
@@ -113,7 +114,7 @@ class RCMG_Callback_better_random_joint_axes(rcmg.RCMG_Callback):
         # vmap is across time
 
         # keep last axis due to detail of `random_hinge` implementation
-        q_joint1, q_joint2 = rcmg_old.random_hinge(key, q[:, 6:7], q[:, 7:8])
+        q_joint1, q_joint2 = rcmg_old_3Seg.random_hinge(key, q[:, 6:7], q[:, 7:8])
 
         @ft.partial(jax.vmap, in_axes=(0, None, 0))
         def update_transform(sys, at, q_joint):
