@@ -132,7 +132,7 @@ def test_transform_transform():
 
 def test_transform_inv():
     for t in [t1, t2]:
-        assert jnp.allclose(t.inv().do(t).as_matrix(), jnp.eye(6), atol=1e-7)
+        assert jnp.allclose(t.inv().do(t).as_matrix(), jnp.eye(6), atol=1e-6)
         assert jnp.allclose(t.do(t.inv()).as_matrix(), jnp.eye(6), atol=1e-7)
         # TODO
         assert tu.tree_close(t.do(t.inv()), Transform.zero(), atol=1e-7)

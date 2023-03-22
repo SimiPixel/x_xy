@@ -26,6 +26,12 @@ and probably won't in the near future.
 `pip install git+https://github.com/SimiPixel/x_xy.git`
 
 Additionally,
-- `render.py` requires a vispy-backend. Good options are
-    - PyQT5
-    - EGL (headless)
+- `render.py` requires a vispy-backend (one is enough). Good options are
+    on linux:
+        - PyQT5 (via e.g. pip)
+        - EGL (headless) (via e.g. apt)
+    on m1 mac:
+        - PyQT6 (via e.g. pip)
+        - OS Mesa (headless) (via brew install mesa)
+
+    More info: https://vispy.org/installation.html

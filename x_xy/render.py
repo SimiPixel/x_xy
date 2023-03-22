@@ -9,6 +9,7 @@ import numpy as np
 import tqdm
 from vispy import app, scene
 from vispy.scene import MatrixTransform
+
 from x_xy import maths
 from x_xy.base import Box, Geometry, GeometryCollection
 
@@ -43,7 +44,13 @@ class Renderer:
         if headless:
             import vispy
 
-            vispy.use("egl")
+            try:
+                vispy.use("egl")
+            except RuntimeError:
+                try:
+                    vispy.use("osmesa")
+                except RuntimeError:
+                    print("headless mode requires either `egl` or `osmesa`")
         self.headless = headless
 
         self.canvas = scene.SceneCanvas(
