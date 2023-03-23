@@ -5,3 +5,4 @@ __pycache__
 .pytest*
 *.pkl
 *.ipynb
+.DS_Store
