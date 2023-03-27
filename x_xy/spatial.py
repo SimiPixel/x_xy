@@ -3,28 +3,51 @@ Implements `Table 1` from
     `A Beginner's Guide to 6-D Vectors (Part 2)`
     by Roy Featherstone.
 
-A small but sufficient set of spatial arithemtic operations.
+`A small but sufficient set of spatial arithemtic operations.`
 """
 
 
 import jax.numpy as jnp
 
 
-def eye(n: int):
-    return jnp.diag(jnp.ones(n))
-
-
 def rx(theta):
+    """
+    [
+        1  0 0
+        0  c s
+        0 -s c
+    ]
+    where c = cos(theta)
+          s = sin(theta)
+    """
     s, c = jnp.sin(theta), jnp.cos(theta)
     return jnp.array([[1, 0, 0], [0, c, s], [0, -s, c]])
 
 
 def ry(theta):
+    """
+    [
+        c 0 -s
+        0 1  0
+        s 0  c
+    ]
+    where c = cos(theta)
+          s = sin(theta)
+    """
     s, c = jnp.sin(theta), jnp.cos(theta)
     return jnp.array([[c, 0, -s], [0, 1, 0], [s, 0, c]])
 
 
 def rz(theta):
+    """
+    [
+         c s 0
+        -s c 0
+         0 0 1
+    ]
+    where c = cos(theta)
+          s = sin(theta)
+    """
     s, c = jnp.sin(theta), jnp.cos(theta)
     return jnp.array([[c, s, 0], [-s, c, 0], [0, 0, 1]])
 
@@ -74,7 +97,7 @@ def rotz(theta):
 
 def xlt(r):
     assert r.shape == (3,)
-    return quadrants(eye(3), ba=-cross(r), bb=eye(3))
+    return quadrants(jnp.eye(3), ba=-cross(r), bb=jnp.eye(3))
 
 
 def X_transform(E, r):
@@ -85,7 +108,7 @@ def mcI(m, c, Ic):
     assert c.shape == (3,)
     assert Ic.shape == (3, 3)
     return quadrants(
-        Ic - m * cross(c) @ cross(c), m * cross(c), -m * cross(c), m * eye(3)
+        Ic - m * cross(c) @ cross(c), m * cross(c), -m * cross(c), m * jnp.eye(3)
     )
 
 
