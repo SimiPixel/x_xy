@@ -29,6 +29,18 @@ def transform_4x4(pos, rot, com=jnp.zeros((3,))):
     return np.asarray(_transform_4x4(pos, rot, com))
 
 
+def set_headless_backend():
+    import vispy
+
+    try:
+        vispy.use("egl")
+    except RuntimeError:
+        try:
+            vispy.use("osmesa")
+        except RuntimeError:
+            print("headless mode requires either `egl` or `osmesa`")
+
+
 class Renderer:
     def __init__(
         self,
@@ -42,15 +54,7 @@ class Renderer:
         **kwargs,
     ):
         if headless:
-            import vispy
-
-            try:
-                vispy.use("egl")
-            except RuntimeError:
-                try:
-                    vispy.use("osmesa")
-                except RuntimeError:
-                    print("headless mode requires either `egl` or `osmesa`")
+            set_headless_backend()
         self.headless = headless
 
         self.canvas = scene.SceneCanvas(
@@ -221,7 +225,7 @@ class Launcher:
         self.realtime = time.time()
         self.current_fps = (self.time / (self.realtime - self.starttime)) * self.fps
 
-        print("FPS: ", int(self.current_fps), f"Target FPS: {self.fps}")
+        print("FPS: ", int(self.current_fps), f"Target FPS: {self.fps}", end="\r")
 
     def start(self):
         self.reset()
