@@ -14,6 +14,27 @@ from x_xy import random as xxy_random
 from x_xy.rcmg import rcmg as rcmg_new
 
 
+def random_hinge(key, ANG_12, ANG_32):
+    @jax.vmap
+    def draw_random_joint_axis(key):
+        J = jax.random.uniform(key, (3,), minval=-1.0, maxval=1.0)
+        Jnorm = jax.numpy.linalg.norm(J)
+        return J / Jnorm
+
+    Js = draw_random_joint_axis(jax.random.split(key))
+    J_12, J_32 = Js[0], Js[1]
+
+    @jax.vmap
+    def q_12(ANG):
+        return maths.quat_rot_axis(J_12, ANG[0])
+
+    @jax.vmap
+    def q_32(ANG):
+        return maths.quat_rot_axis(J_32, ANG[0])
+
+    return q_12(ANG_12), q_32(ANG_32)
+
+
 def rcmg_3Seg(
     batchsize,
     randomized_interpolation=False,
@@ -33,6 +54,7 @@ def rcmg_3Seg(
     pos_min=-2.5,
     pos_max=+2.5,
     param_ident=None,
+    relative_orientations=random_hinge,
 ):
     pmap_size, vmap_size = rcmg_new.distribute_batchsize(batchsize)
 
@@ -109,7 +131,7 @@ def rcmg_3Seg(
         q = maths.quat_euler(ORI)
 
         key, consume = random.split(key)
-        q_12, q_23 = random_hinge(consume, JA_12, JA_32)
+        q_12, q_23 = relative_orientations(consume, JA_12, JA_32)
 
         if randomized_anchors:
             key, consume = random.split(key)
@@ -262,27 +284,6 @@ def randomize_anchor_qs(key, q, q_12, q_23):
         q_12,
         q_23,
     )
-
-
-def random_hinge(key, ANG_12, ANG_32):
-    @jax.vmap
-    def draw_random_joint_axis(key):
-        J = jax.random.uniform(key, (3,), minval=-1.0, maxval=1.0)
-        Jnorm = jax.numpy.linalg.norm(J)
-        return J / Jnorm
-
-    Js = draw_random_joint_axis(jax.random.split(key))
-    J_12, J_32 = Js[0], Js[1]
-
-    @jax.vmap
-    def q_12(ANG):
-        return maths.quat_rot_axis(J_12, ANG[0])
-
-    @jax.vmap
-    def q_32(ANG):
-        return maths.quat_rot_axis(J_32, ANG[0])
-
-    return q_12(ANG_12), q_32(ANG_32)
 
 
 def param_ident_dustin(key):
