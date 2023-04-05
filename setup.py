@@ -30,13 +30,15 @@ def find_data_files(package_dir, patterns, excludes=()):
 setuptools.setup(
     name="x_xy",
     packages=setuptools.find_packages(),
-    version="0.1.0",
+    version="0.1.1",
     package_data={"x_xy": find_data_files("x_xy", patterns=["*.xml"])},
     include_package_data=True,
     install_requires=[
         "jaxlib",
         "jax",
-        "flax",
+        "flax==0.6.4",
+        "chex==0.1.5",
+        "orbax==0.1.1",
         "tqdm",
         "vispy",
         "imageio",
